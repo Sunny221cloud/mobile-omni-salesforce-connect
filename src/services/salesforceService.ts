@@ -28,6 +28,21 @@ export interface Lead {
   LeadSource: string;
 }
 
+export interface Account {
+  Id: string;
+  Name: string;
+  Phone: string;
+  Website: string;
+  BillingStreet: string;
+  BillingCity: string;
+  BillingState: string;
+  BillingPostalCode: string;
+  BillingCountry: string;
+  Industry: string;
+  Type: string;
+  NumberOfEmployees: number;
+}
+
 export interface Opportunity {
   Id: string;
   Name: string;
@@ -128,6 +143,34 @@ class SalesforceService {
     } catch (error) {
       console.error('Failed to fetch leads:', error);
       return [];
+    }
+  }
+
+  async getAccounts(limit: number = 50): Promise<Account[]> {
+    try {
+      const query = `SELECT Id, Name, Phone, Website, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry, Industry, Type, NumberOfEmployees FROM Account LIMIT ${limit}`;
+      const response = await axios.get(
+        this.getApiUrl(`/query/?q=${encodeURIComponent(query)}`),
+        { headers: this.getHeaders() }
+      );
+      return response.data.records;
+    } catch (error) {
+      console.error('Failed to fetch accounts:', error);
+      return [];
+    }
+  }
+
+  async createAccount(accountData: Partial<Account>): Promise<string | null> {
+    try {
+      const response = await axios.post(
+        this.getApiUrl('/sobjects/Account/'),
+        accountData,
+        { headers: this.getHeaders() }
+      );
+      return response.data.id;
+    } catch (error) {
+      console.error('Failed to create account:', error);
+      return null;
     }
   }
 

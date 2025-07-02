@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Cloud, Users, TrendingUp, Activity, Phone, Mail, MapPin, Calendar, DollarSign, Target } from 'lucide-react';
+import { Cloud, Users, TrendingUp, Activity, Phone, Mail, MapPin, Calendar, DollarSign, Target, Building2 } from 'lucide-react';
 import AuthModal from '@/components/AuthModal';
 import Dashboard from '@/components/Dashboard';
 import ContactsList from '@/components/ContactsList';
 import LeadsList from '@/components/LeadsList';
+import AccountsList from '@/components/AccountsList';
 
 const Index = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -85,10 +86,14 @@ const Index = () => {
 
       <div className="p-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <Activity className="h-4 w-4" />
               Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="accounts" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Accounts
             </TabsTrigger>
             <TabsTrigger value="contacts" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
@@ -102,6 +107,10 @@ const Index = () => {
 
           <TabsContent value="dashboard">
             <Dashboard />
+          </TabsContent>
+
+          <TabsContent value="accounts">
+            <AccountsList />
           </TabsContent>
 
           <TabsContent value="contacts">
