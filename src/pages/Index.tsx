@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,15 +10,28 @@ import Dashboard from '@/components/Dashboard';
 import ContactsList from '@/components/ContactsList';
 import LeadsList from '@/components/LeadsList';
 import AccountsList from '@/components/AccountsList';
+import { salesforceService } from '@/services/salesforceService';
 
 const Index = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
 
+  useEffect(() => {
+    // Check if user is already authenticated on app load
+    setIsAuthenticated(salesforceService.isAuthenticated());
+  }, []);
+
   const handleLogin = () => {
-    setIsAuthenticated(true);
+    console.log('Login successful, checking authentication status');
+    setIsAuthenticated(salesforceService.isAuthenticated());
     setShowAuthModal(false);
+  };
+
+  const handleLogout = () => {
+    salesforceService.logout();
+    setIsAuthenticated(false);
+    setActiveTab('dashboard');
   };
 
   if (!isAuthenticated) {
@@ -78,9 +91,14 @@ const Index = () => {
             <Cloud className="h-8 w-8 text-blue-600 mr-2" />
             <h1 className="text-xl font-bold text-gray-900">OmniOut</h1>
           </div>
-          <Badge variant="secondary" className="bg-green-100 text-green-800">
-            Connected
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Badge variant="secondary" className="bg-green-100 text-green-800">
+              Connected
+            </Badge>
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              Logout
+            </Button>
+          </div>
         </div>
       </header>
 

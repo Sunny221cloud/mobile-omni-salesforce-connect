@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,9 +37,12 @@ const AccountsList = () => {
 
   const fetchAccounts = async () => {
     try {
+      console.log('Fetching accounts...');
       const data = await salesforceService.getAccounts();
       setAccounts(data);
+      console.log('Accounts fetched successfully:', data.length);
     } catch (error) {
+      console.error('Error fetching accounts:', error);
       toast({
         title: "Error",
         description: "Failed to fetch accounts",
@@ -53,15 +55,33 @@ const AccountsList = () => {
 
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!newAccount.Name.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Account name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsCreating(true);
+    console.log('Attempting to create account:', newAccount);
 
     try {
+      // Check authentication before creating
+      if (!salesforceService.isAuthenticated()) {
+        throw new Error('Not authenticated to Salesforce');
+      }
+
       const accountId = await salesforceService.createAccount(newAccount);
       if (accountId) {
         toast({
           title: "Success",
           description: "Account created successfully!",
         });
+        
+        // Reset form
         setNewAccount({
           Name: '',
           Phone: '',
@@ -75,19 +95,18 @@ const AccountsList = () => {
           Type: 'Customer',
           NumberOfEmployees: 0
         });
+        
         setIsSheetOpen(false);
         fetchAccounts(); // Refresh the list
+        console.log('Account creation completed successfully');
       } else {
-        toast({
-          title: "Error",
-          description: "Failed to create account",
-          variant: "destructive",
-        });
+        throw new Error('Account creation returned null ID');
       }
     } catch (error) {
+      console.error('Account creation error:', error);
       toast({
         title: "Error",
-        description: "Failed to create account",
+        description: error instanceof Error ? error.message : "Failed to create account",
         variant: "destructive",
       });
     } finally {
