@@ -56,9 +56,15 @@ export interface Opportunity {
 
 class SalesforceService {
   private config: SalesforceConfig | null = null;
+  
+  // Salesforce Connected App Configuration
+  // IMPORTANT: Replace these with your actual Connected App credentials
+  private readonly CLIENT_ID = '3MVG9_XwsqGbNStkOr4KvWCHnB7yTlXm6vF_G5N8k7X8vKqWn.y2YrKs8Y_kDq8K9Y8HnqP9KN6mT8Y_kDq8K9';  // Replace with your Consumer Key
+  private readonly CLIENT_SECRET = 'YOUR_CLIENT_SECRET_HERE';  // Replace with your Consumer Secret
+  private readonly REDIRECT_URI = `${window.location.origin}/oauth/callback`;
+  private readonly LOGIN_URL = 'https://login.salesforce.com';  // Use https://test.salesforce.com for sandbox
 
   constructor() {
-    // Initialize with stored config if available
     this.loadStoredConfig();
   }
 
@@ -67,7 +73,7 @@ class SalesforceService {
       const storedConfig = localStorage.getItem('sf_config');
       if (storedConfig) {
         this.config = JSON.parse(storedConfig);
-        console.log('Loaded stored Salesforce config:', this.config ? 'Config found' : 'No config');
+        console.log('Loaded stored Salesforce config');
       }
     } catch (error) {
       console.error('Error loading stored config:', error);
@@ -78,44 +84,63 @@ class SalesforceService {
   initiateOAuth(): void {
     console.log('Initiating OAuth flow...');
     
-    // Salesforce OAuth URL parameters
-    const clientId = '3MVG9_XwsqGbNStkOr4KvWCHnB7yTlXm6vF_G5N8k7X8vKqWn.y2YrKs8Y_kDq8K9Y8HnqP9KN6mT8Y_kDq8K9'; // Replace with your Connected App Consumer Key
-    const redirectUri = encodeURIComponent(`${window.location.origin}/oauth/callback`);
-    const scope = encodeURIComponent('api refresh_token');
+    if (this.CLIENT_ID.includes('YOUR_CLIENT_ID') || this.CLIENT_SECRET.includes('YOUR_CLIENT_SECRET')) {
+      throw new Error('Please configure your Salesforce Connected App credentials in salesforceService.ts');
+    }
     
-    // Construct the OAuth URL
-    const oauthUrl = `https://login.salesforce.com/services/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
+    const scope = encodeURIComponent('api refresh_token id');
+    const state = encodeURIComponent(Math.random().toString(36).substring(7));
     
-    console.log('Redirecting to OAuth URL:', oauthUrl);
+    // Store state for validation
+    localStorage.setItem('oauth_state', state);
+    
+    const oauthUrl = `${this.LOGIN_URL}/services/oauth2/authorize?response_type=code&client_id=${this.CLIENT_ID}&redirect_uri=${encodeURIComponent(this.REDIRECT_URI)}&scope=${scope}&state=${state}`;
+    
+    console.log('Redirecting to OAuth URL...');
     window.location.href = oauthUrl;
   }
 
-  async handleOAuthCallback(code: string, instanceUrl: string): Promise<boolean> {
+  async handleOAuthCallback(code: string, instanceUrl: string, state?: string): Promise<boolean> {
     try {
-      console.log('Handling OAuth callback with code:', code);
+      console.log('Handling OAuth callback...');
       
-      const clientId = '3MVG9_XwsqGbNStkOr4KvWCHnB7yTlXm6vF_G5N8k7X8vKqWn.y2YrKs8Y_kDq8K9Y8HnqP9KN6mT8Y_kDq8K9'; // Replace with your Consumer Key
-      const clientSecret = 'YOUR_CLIENT_SECRET'; // Replace with your Consumer Secret
-      const redirectUri = `${window.location.origin}/oauth/callback`;
+      // Validate state parameter
+      const storedState = localStorage.getItem('oauth_state');
+      if (state && storedState && state !== storedState) {
+        throw new Error('Invalid OAuth state parameter');
+      }
+      localStorage.removeItem('oauth_state');
+      
+      if (this.CLIENT_ID.includes('YOUR_CLIENT_ID') || this.CLIENT_SECRET.includes('YOUR_CLIENT_SECRET')) {
+        throw new Error('Please configure your Salesforce Connected App credentials');
+      }
 
-      // Exchange authorization code for access token
-      const tokenResponse = await axios.post('https://login.salesforce.com/services/oauth2/token', {
-        grant_type: 'authorization_code',
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: redirectUri,
-        code: code
-      }, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
+      // Prepare token exchange request
+      const tokenData = new URLSearchParams();
+      tokenData.append('grant_type', 'authorization_code');
+      tokenData.append('client_id', this.CLIENT_ID);
+      tokenData.append('client_secret', this.CLIENT_SECRET);
+      tokenData.append('redirect_uri', this.REDIRECT_URI);
+      tokenData.append('code', code);
+
+      console.log('Exchanging code for access token...');
+      
+      const tokenResponse = await axios.post(
+        `${this.LOGIN_URL}/services/oauth2/token`,
+        tokenData,
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json'
+          }
         }
-      });
+      );
 
-      console.log('Token response received:', tokenResponse.data);
+      console.log('Token exchange successful');
 
       // Store the configuration
       this.config = {
-        instanceUrl: tokenResponse.data.instance_url || instanceUrl,
+        instanceUrl: tokenResponse.data.instance_url,
         accessToken: tokenResponse.data.access_token,
         apiVersion: 'v58.0'
       };
@@ -127,6 +152,9 @@ class SalesforceService {
       return true;
     } catch (error) {
       console.error('OAuth callback failed:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('Token exchange error:', error.response?.data);
+      }
       return false;
     }
   }
@@ -319,7 +347,7 @@ class SalesforceService {
 
   isAuthenticated(): boolean {
     const authenticated = this.config !== null && this.config.accessToken !== null;
-    console.log('Authentication check:', authenticated, this.config ? 'Config exists' : 'No config');
+    console.log('Authentication check:', authenticated);
     return authenticated;
   }
 
@@ -327,6 +355,39 @@ class SalesforceService {
     console.log('Logging out...');
     this.config = null;
     localStorage.removeItem('sf_config');
+    localStorage.removeItem('oauth_state');
+  }
+
+  // Utility method to get current user info
+  async getCurrentUser(): Promise<any> {
+    try {
+      if (!this.config) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await axios.get(
+        this.getApiUrl('/sobjects/User/' + await this.getUserId()),
+        { headers: this.getHeaders() }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error('Failed to get current user:', error);
+      return null;
+    }
+  }
+
+  private async getUserId(): Promise<string> {
+    try {
+      const response = await axios.get(
+        `${this.config?.instanceUrl}/services/oauth2/userinfo`,
+        { headers: this.getHeaders() }
+      );
+      return response.data.user_id;
+    } catch (error) {
+      console.error('Failed to get user ID:', error);
+      throw error;
+    }
   }
 }
 

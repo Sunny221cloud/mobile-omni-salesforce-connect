@@ -8,58 +8,68 @@ import { Cloud } from 'lucide-react';
 const OAuthCallback = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [status, setStatus] = useState('Processing...');
+  const [status, setStatus] = useState('Processing OAuth callback...');
 
   useEffect(() => {
     const handleCallback = async () => {
       try {
         console.log('OAuth callback page loaded');
         
-        // Extract authorization code from URL
+        // Extract parameters from URL
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
         const instanceUrl = urlParams.get('instance_url') || 'https://login.salesforce.com';
+        const state = urlParams.get('state');
+        const error = urlParams.get('error');
+        const errorDescription = urlParams.get('error_description');
 
-        console.log('Extracted OAuth code:', code);
-
-        if (!code) {
-          throw new Error('No authorization code received');
+        // Handle OAuth errors
+        if (error) {
+          throw new Error(`OAuth Error: ${error} - ${errorDescription || 'Unknown error'}`);
         }
 
-        setStatus('Authenticating with Salesforce...');
+        if (!code) {
+          throw new Error('No authorization code received from Salesforce');
+        }
+
+        console.log('Extracted OAuth code, processing...');
+        setStatus('Exchanging authorization code for access token...');
 
         // Exchange code for access token
-        const success = await salesforceService.handleOAuthCallback(code, instanceUrl);
+        const success = await salesforceService.handleOAuthCallback(code, instanceUrl, state || undefined);
 
         if (success) {
-          setStatus('Authentication successful! Redirecting...');
+          setStatus('Authentication successful! Redirecting to dashboard...');
+          
           toast({
-            title: "Connection Successful",
-            description: "Successfully connected to Salesforce via OAuth!",
+            title: "Successfully Connected!",
+            description: "Your Salesforce org is now connected. You can now view and manage your data.",
           });
 
-          // Redirect back to main app after short delay
+          // Short delay before redirect to show success message
           setTimeout(() => {
             navigate('/', { replace: true });
           }, 2000);
         } else {
-          throw new Error('OAuth authentication failed');
+          throw new Error('Failed to exchange authorization code for access token');
         }
 
       } catch (error) {
         console.error('OAuth callback error:', error);
         setStatus('Authentication failed');
         
+        const errorMessage = error instanceof Error ? error.message : 'OAuth authentication failed';
+        
         toast({
           title: "Authentication Failed",
-          description: error instanceof Error ? error.message : "OAuth authentication failed",
+          description: errorMessage,
           variant: "destructive",
         });
 
-        // Redirect back to main app after error
+        // Redirect back to main app after error with longer delay
         setTimeout(() => {
           navigate('/', { replace: true });
-        }, 3000);
+        }, 4000);
       }
     };
 
